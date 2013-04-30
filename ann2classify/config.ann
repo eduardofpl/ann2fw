@@ -1,0 +1,11 @@
+Training   1
+NumPattern 100
+NumInput   3
+NumHidden  3
+NumOutput  2
+MaxEpoca   1000
+eta        0.3
+alpha      0.2
+smallwt    0.5
+ErroStop   0.00001
+seed       -25

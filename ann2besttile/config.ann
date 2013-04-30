@@ -1,0 +1,11 @@
+Training   1
+NumPattern 232
+NumInput   12
+NumHidden  12
+NumOutput  12
+MaxEpoca   10000
+eta        0.3
+alpha      0.2
+smallwt    0.5
+ErroStop   0.00001
+seed       -25
