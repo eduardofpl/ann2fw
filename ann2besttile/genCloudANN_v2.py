@@ -88,6 +88,7 @@ def getTasks(server, appId, maxNumberTasks, completedOnly, oper = 0, fileName = 
     for item in range(numberTasks):
         tasksInfo.append({'taskId':data[item]['id'], \
             'area':data[item]['info']['tile']['restrictedExtent']})
+    print 'number of total completed tasks: ', len(tasksInfo)
     return tasksInfo
 
 def getResults(server, tasksInfo, maxNumberAnswers, oper = 0, fileName = 'data/jsonAnswersInfo.dat'):
@@ -103,24 +104,32 @@ def getResults(server, tasksInfo, maxNumberAnswers, oper = 0, fileName = 'data/j
     :rtype: dictionary
     """
     answersApp = []
+    usableTasks = []
     numberTasks = len(tasksInfo)
     if oper == 0:
+        answerIdx = 0
+        #~ for item, number in enumerate(tasksInfo):
         for item in range(numberTasks):
-            answersApp.append([])
             JSONdata = urllib2.urlopen(url=server+"/api/taskrun?task_id="+ \
                 str(tasksInfo[item]['taskId'])+"&limit="+ \
                 str(maxNumberAnswers)).read()
             data = json.loads(JSONdata)
             lenData = len(data)
-            #~ #HARDCODE BEGINS - Testing the obtaining of an exact number of answers
-            #~ if (lenData <> 5):
-                #~ continue
-            #~ else:
-                #~ print "Task " + str(tasksInfo[item]['taskId']) + " has " + str(lenData) + " answers. NICE! :-)\n"
-            #~ #HARDCODE ENDS
-            for ans in range(lenData):
-                answersApp[item].append({'taskId':data[ans]['task_id'], \
-                'id':data[ans]['id'], 'answer':data[ans]['info']['besttile']})
+            #HARDCODE BEGINS - Testing the obtaining of an exact number of answers
+            if (lenData < 30):
+                # If there are less answers, we pop the item out!
+                #~ trash = tasksInfo.pop(item)
+                continue
+            else:
+                print "Task " + str(tasksInfo[item]['taskId']) + " has " + str(lenData) + " answers. NICE! :-)\n"
+                usableTasks.append(tasksInfo[item])
+            #HARDCODE MIDDLE
+                answersApp.append([])
+                for ans in range(lenData):
+                    answersApp[answerIdx].append({'taskId':data[ans]['task_id'], \
+                    'id':data[ans]['id'], 'answer':data[ans]['info']['besttile']})
+                answerIdx = answerIdx + 1
+            #HARDCODE END
         with open(fileName,'w') as outfile:
             json.dump(answersApp, outfile)
         outfile.close()
@@ -128,7 +137,11 @@ def getResults(server, tasksInfo, maxNumberAnswers, oper = 0, fileName = 'data/j
         with open(fileName,'r') as outfile:
             answersApp = json.load(outfile)
         outfile.close()
-    return answersApp
+    print 'number of tasks: ', len(tasksInfo)
+    print 'number of usable tasks: ', len(usableTasks)
+    print 'number of usable answers: ', len(answersApp)
+    #~ exit(1)
+    return (usableTasks, answersApp)
 
 def genStats(data, printStats = 0):
     """
@@ -139,7 +152,7 @@ def genStats(data, printStats = 0):
     :returns: Matrix with answers count for each task
     :rtype: list
     """
-    fVotes = open('/home/eduardo/tmpImplement/results/votes.txt','w')
+    fVotes = open('/home/eduardo/ForestWatchers/ann2besttile/results/votes.txt','w')
     tileCount = []
     numberTasks = len(data)
     for task in range(numberTasks):
@@ -245,6 +258,8 @@ def cutTiles(tasksInfo, results, origLocation, destLocation, \
 
     fSelect = open(destLocation+'/selectedTile.txt','w')
     numberTasks = len(tasksInfo)
+    print 'tasksInfo: ', len(tasksInfo)
+    print 'results: ', len(results)
     for task in range(numberTasks):
         #Checking if the task has the mininum number of answers
         if (sum(results[task]) < nAnswers):
@@ -407,9 +422,13 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray, samplSize
     :returns: Nothing
     :rtype: None
     """
-
+    print '\nbegin of genInput\n'
     # Training / aplication
-    treina = True
+    treina = False
+    if treina == True:
+        verdade = True
+    else:
+        verdade = False
 
     # Sampling pixels from image
     sampl = True
@@ -455,6 +474,7 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray, samplSize
     finishLine = True
     #Getting number of tasks
     numberTasks = len(tasksInfo)
+    print 'number of tasks: ', numberTasks
     for task in range(numberTasks):
         #Geting the selected day for each task
         taskId = tasksInfo[task]['taskId']
@@ -462,9 +482,10 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray, samplSize
             imgName = tmpImg[img] + str(taskId) + '.tif'
             #Openning image (and testing)
             if os.path.exists(imgName) is False:
-                print 'INPUT -> Task miss: ' + str(taskId) + ' Image: ' + str(img)
+                print 'INPUT -> Task miss: ' + str(taskId) + ' Image: ' + str(img) + ' Name: ' + imgName
                 finishLine = False
                 continue
+            print 'INPUT -> Task: ' + str(taskId) + ' Image: ' + str(img)
             fileSat = gdal.Open(imgName, GA_ReadOnly)
             if fileSat is None:
                 print 'Could not open ' + imgName
@@ -482,6 +503,8 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray, samplSize
             fileSat = None
 
             #If we are sampling the image, then we'll pick our samples
+            print 'sampl: ', sampl
+            print 'buildSampl: ', buildSampl
             if ((sampl == True) and (buildSampl == True)):
                 universe = []
                 samplList = []
@@ -606,6 +629,7 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray, samplSize
         outOutputClass.close()
 
     statusGenInput = 0
+    print '\nend of genInput\n'
     return statusGenInput
 
 def rgb2gray(R,G,B,T):
@@ -707,7 +731,7 @@ if __name__ == "__main__":
         destDir = options.destDir
     else:
         #~ destDir = "/home/eduardo/Testes/fw_img/results/"
-        destDir = "/home/eduardo/tmpImplement/results/"
+        destDir = "/home/eduardo/ForestWatchers/ann2besttile/results/"
     if options.fullBuild:
         fullBuild = options.fullBuild
     else:
@@ -731,8 +755,8 @@ if __name__ == "__main__":
     print " "
 
     #For complete tasks only
-    completedOnly = 0
-    maxNumberAnswers = 30
+    completedOnly = 1
+    maxNumberAnswers = 35
     print "Obtaining Tasks..."
     start = time.time()
     tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly, downORload)
@@ -743,7 +767,7 @@ if __name__ == "__main__":
     
     print "Obtaining Results..."
     start = time.time()
-    results = getResults(server, tasksInfo, maxNumberAnswers, downORload)
+    (usableTasksInfo, results) = getResults(server, tasksInfo, maxNumberAnswers, downORload)
     end = time.time()
     elapsed = end - start
     print "Time taken: ", elapsed, "seconds"
@@ -759,7 +783,7 @@ if __name__ == "__main__":
     
     print "Cutting images..."
     start = time.time()
-    finalResult = cutTiles(tasksInfo, stats, imagesDir, destDir, \
+    finalResult = cutTiles(usableTasksInfo, stats, imagesDir, destDir, \
         completedOnly)
     end = time.time()
     elapsed = end - start
@@ -770,7 +794,7 @@ if __name__ == "__main__":
     typeGray = 'luminance'
     print "Generating input for ANN..."
     start = time.time()
-    input = genInput(tasksInfo, stats, imagesDir, destDir, typeGray, 0.10)
+    input = genInput(usableTasksInfo, stats, imagesDir, destDir, typeGray, 0.10)
     end = time.time()
     globalEnd = end
     elapsed = end - start
