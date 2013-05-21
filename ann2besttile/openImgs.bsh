@@ -1,0 +1,19 @@
+#!/bin/bash
+
+taskID=12974
+
+rm -rf easy/*
+
+cp results/tmpImg_n01/$taskID.tif easy/$taskID.01.tif
+cp results/tmpImg_n02/$taskID.tif easy/$taskID.02.tif
+cp results/tmpImg_n03/$taskID.tif easy/$taskID.03.tif
+cp results/tmpImg_n04/$taskID.tif easy/$taskID.04.tif
+cp results/tmpImg_n05/$taskID.tif easy/$taskID.05.tif
+cp results/tmpImg_n06/$taskID.tif easy/$taskID.06.tif
+cp results/tmpImg_n07/$taskID.tif easy/$taskID.07.tif
+cp results/tmpImg_n08/$taskID.tif easy/$taskID.08.tif
+cp results/tmpImg_n09/$taskID.tif easy/$taskID.09.tif
+cp results/tmpImg_n10/$taskID.tif easy/$taskID.10.tif
+cp results/tmpImg_n11/$taskID.tif easy/$taskID.11.tif
+cp results/tmpImg_n12/$taskID.tif easy/$taskID.12.tif
+
