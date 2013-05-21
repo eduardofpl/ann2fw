@@ -1,2 +1,0 @@
-case1 -> primeiro teste, somente com as tasks concluídas
-case2 -> somente com tarefas com 5 respostas (ATUAL)

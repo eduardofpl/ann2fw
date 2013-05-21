@@ -1,7 +1,7 @@
-Training   1
-NumPattern 232
+Training   0
+NumPattern 100
 NumInput   12
-NumHidden  12
+NumHidden  48
 NumOutput  12
 MaxEpoca   10000
 eta        0.3

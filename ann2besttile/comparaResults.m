@@ -2,8 +2,10 @@ close all;
 clear all;
 clc;
 
-verdade = load('trainOutputClass.dat');
+verdade = load('trainOutput.dat');
 estimado = load('saidaTreina.dat');
+% verdade = load('verdadeOutput.dat');
+% estimado = load('saidaAplic.dat');
 
 inst = size(verdade,1);
 pontos = size(verdade,2);

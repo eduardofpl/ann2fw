@@ -83,13 +83,13 @@ int main(void)
     printf("\nTreinando a rede!!!\n");
 
     // Arquivo de dados
-    ENTRADA = fopen("trainInput1par.dat","r");
+    ENTRADA = fopen("trainInput.dat","r");
     if (ENTRADA == NULL)
     {
       fprintf(stderr,"ERRO: Falha ao abrir arquivo de entrada.\n\n");
       return(1);
     }
-    OBJETIVO = fopen("trainOutputClass.dat","r");
+    OBJETIVO = fopen("trainOutput.dat","r");
     if (OBJETIVO == NULL)
     {
       fprintf(stderr,"ERRO: Falha ao abrir arquivo de objetivos.\n\n");

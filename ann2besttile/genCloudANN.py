@@ -29,22 +29,32 @@ import datetime
 from gdalconst import *
 from optparse import OptionParser
 
-def getAppId(server, appName):
+def getAppId(server, appName, oper = 0, fileName = 'data/jsonAPPinfo.dat'):
     """
     Get the application id given the short name
 
     :arg string server: Address of the server
     :arg string appName: Short name of the application
+    :arg integer oper: Type of operation, 0 for download and save, 1 for load from file
+    :arg string fileName: Name of the file to save or load
     :returns: Numerical id of the application
     :rtype: integer
     """
-    JSONdata = urllib2.urlopen(url=server+"/api/app?short_name="+ \
-        appName).read()
-    data = json.loads(JSONdata)
+    if oper == 0:
+        JSONdata = urllib2.urlopen(url=server+"/api/app?short_name="+ \
+            appName).read()
+        data = json.loads(JSONdata)
+        with open(fileName,'w') as outfile:
+            json.dump(data, outfile)
+        outfile.close()
+    elif oper == 1:
+        with open(fileName,'r') as outfile:
+            data = json.load(outfile)
+        outfile.close()
     appId = data[0]['id']
     return appId
 
-def getTasks(server, appId, maxNumberTasks, completedOnly):
+def getTasks(server, appId, maxNumberTasks, completedOnly, oper = 0, fileName = 'data/jsonTasksInfo.dat'):
     """
     Get the tasks of a particular application from the server.
 
@@ -52,47 +62,96 @@ def getTasks(server, appId, maxNumberTasks, completedOnly):
     :arg string appId: ID of the application to be analysed
     :arg integer maxNumberTasks: Maximum number of tasks to be downloaded
     :arg int completedOnly: If we'll get only completed tasks
+    :arg integer oper: Type of operation, 0 for download and save, 1 for load from file
+    :arg string fileName: Name of the file to save or load
     :returns: Tasks info for the application
     :rtype: dictionary
     """
-    if completedOnly == 1:
-        JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
-            str(appId)+"&state=completed&limit="+ \
-            str(maxNumberTasks)).read()
-    else:
-        JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
-            str(appId)+"&limit="+str(maxNumberTasks)).read()
-    data = json.loads(JSONdata)
+    if oper == 0:
+        if completedOnly == 1:
+            JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
+                str(appId)+"&state=completed&limit="+ \
+                str(maxNumberTasks)).read()
+        else:
+            JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
+                str(appId)+"&limit="+str(maxNumberTasks)).read()
+        data = json.loads(JSONdata)
+        with open(fileName,'w') as outfile:
+            json.dump(data, outfile)
+        outfile.close()
+    elif oper == 1:
+        with open(fileName,'r') as outfile:
+            data = json.load(outfile)
+        outfile.close()
     numberTasks = len(data)
     tasksInfo = []
     for item in range(numberTasks):
         tasksInfo.append({'taskId':data[item]['id'], \
             'area':data[item]['info']['tile']['restrictedExtent']})
+    print 'number of total completed tasks: ', len(tasksInfo)
     return tasksInfo
 
-def getResults(server, tasksInfo, maxNumberAnswers):
+def getResults(server, tasksInfo, maxNumberAnswers, oper = 0, fileName1 = 'data/jsonAnswersInfo.dat', fileName2 = 'data/jsonUsableInfo.dat'):
     """
     Get the results of a particular application from the server.
 
     :arg string server: Address of the server
     :arg integer maxNumberAnswers: Maximum number of answers per task to be downloaded
     :arg list tasksInfo: List of tasks
+    :arg integer oper: Type of operation, 0 for download and save, 1 for load from file
+    :arg string fileName1: Name of the file to save or load
+    :arg string fileName2: Name of the file to save or load
     :returns: Results for the application
     :rtype: dictionary
     """
+    #~ usableData = open('usableData.dat', 'w')
     answersApp = []
+    usableTasks = []
     numberTasks = len(tasksInfo)
-    for item in range(numberTasks):
-        answersApp.append([])
-        JSONdata = urllib2.urlopen(url=server+"/api/taskrun?task_id="+ \
-            str(tasksInfo[item]['taskId'])+"&limit="+ \
-            str(maxNumberAnswers)).read()
-        data = json.loads(JSONdata)
-        lenData = len(data)
-        for ans in range(lenData):
-            answersApp[item].append({'taskId':data[ans]['task_id'], \
-            'id':data[ans]['id'], 'answer':data[ans]['info']['besttile']})
-    return answersApp
+    if oper == 0:
+        answerIdx = 0
+        #~ for item, number in enumerate(tasksInfo):
+        for item in range(numberTasks):
+            JSONdata = urllib2.urlopen(url=server+"/api/taskrun?task_id="+ \
+                str(tasksInfo[item]['taskId'])+"&limit="+ \
+                str(maxNumberAnswers)).read()
+            data = json.loads(JSONdata)
+            lenData = len(data)
+            #HARDCODE BEGINS - Testing the obtaining of an exact number of answers
+            if (lenData < 0):
+                # If there are less answers, we pop the item out!
+                #~ trash = tasksInfo.pop(item)
+                continue
+            else:
+                print "Task " + str(tasksInfo[item]['taskId']) + " has " + str(lenData) + " answers. NICE! :-)\n"
+                usableTasks.append(tasksInfo[item])
+            #HARDCODE MIDDLE
+                #~ usableData.write(str(tasksInfo[item]['taskId'])+" "+str(tasksInfo[item]['area'])+"\n")
+                answersApp.append([])
+                for ans in range(lenData):
+                    answersApp[answerIdx].append({'taskId':data[ans]['task_id'], \
+                    'id':data[ans]['id'], 'answer':data[ans]['info']['besttile']})
+                answerIdx = answerIdx + 1
+            #HARDCODE END
+        with open(fileName1,'w') as outfile:
+            json.dump(answersApp, outfile)
+        outfile.close()
+        with open(fileName2,'w') as outfile:
+            json.dump(usableTasks, outfile)
+        outfile.close()
+    elif oper == 1:
+        with open(fileName1,'r') as outfile:
+            answersApp = json.load(outfile)
+        outfile.close()
+        with open(fileName2,'r') as outfile:
+            usableTasks = json.load(outfile)
+        outfile.close()
+    print 'number of tasks: ', len(tasksInfo)
+    print 'number of usable tasks: ', len(usableTasks)
+    print 'number of usable answers: ', len(answersApp)
+    #~ usableData.close()
+    #~ exit(1)
+    return (usableTasks, answersApp)
 
 def genStats(data, printStats = 0):
     """
@@ -103,7 +162,7 @@ def genStats(data, printStats = 0):
     :returns: Matrix with answers count for each task
     :rtype: list
     """
-    fVotes = open('/home/eduardo/tmpImplement/results/votes.txt','w')
+    fVotes = open('/home/eduardo/ForestWatchers/ann2besttile/results/votes.txt','w')
     tileCount = []
     numberTasks = len(data)
     for task in range(numberTasks):
@@ -203,12 +262,14 @@ def cutTiles(tasksInfo, results, origLocation, destLocation, \
     #Open file containing geoinfo on best result and statistical info on all
     if completedOnly == 1:
         f = open(destLocation+'/bestInfo.txt','w')
-        fStat = open(destLocation+'/statInfoCompleted.txt','w')
-    else:
-        fStat = open(destLocation+'/statInfoAll_n'+str(nAnswers)+'.txt','w')
+        #~ fStat = open(destLocation+'/statInfoCompleted.txt','w')
+    #~ else:
+        #~ fStat = open(destLocation+'/statInfoAll_n'+str(nAnswers)+'.txt','w')
 
     fSelect = open(destLocation+'/selectedTile.txt','w')
     numberTasks = len(tasksInfo)
+    print 'tasksInfo: ', len(tasksInfo)
+    print 'results: ', len(results)
     for task in range(numberTasks):
         #Checking if the task has the mininum number of answers
         if (sum(results[task]) < nAnswers):
@@ -245,7 +306,7 @@ def cutTiles(tasksInfo, results, origLocation, destLocation, \
         print taskId
         print selectedFile
         print definedArea
-        fSelect.write(str(task)+" "+str(taskId)+" "+selectedFile+"\n")
+        fSelect.write(str(taskId)+" "+selectedFile+"\n")
         #Printing bestInfo
         if completedOnly == 1:
             f.write(str(definedArea[0])+" "+ str(definedArea[1])+" "+\
@@ -295,7 +356,7 @@ def cutTiles(tasksInfo, results, origLocation, destLocation, \
     if completedOnly == 1:
         f.close()
     #Close stat file
-    fStat.close()
+    #~ fStat.close()
     fSelect.close()
     #Removing temporary directories
     #~ removeDir(tmpMosaic)
@@ -357,7 +418,7 @@ def removeOldFiles(directory,daysLimit):
     statusRemoval = 0
     return statusRemoval
 
-def genInput(tasksInfo, results, origLocation, destLocation, typeGray):
+def genInput(tasksInfo, results, origLocation, destLocation, typeGray, samplSize = 0.10):
     """
     Generate input file for ANN
 
@@ -366,13 +427,15 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray):
     :arg string origLocation: Directory with orginal images.
     :arg string origLocation: Directory for the results.
     :arg string typeGray: Type of gray scale transformation
+    :arg integer samplSize: Size of the sampling [0.0, 1.0]
 
     :returns: Nothing
     :rtype: None
     """
-
+    print '\nbegin of genInput\n'
     # Training / aplication
     treina = True
+    verdade = False
 
     # Sampling pixels from image
     sampl = True
@@ -384,13 +447,18 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray):
     # Write data to file
     if treina:
         outInput = open('trainInput.dat', 'w')
+        #~ outInput1par = open('trainInput1par.dat', 'w')
         outOutput = open('trainOutput.dat', 'w')
-        outOutputClass = open('trainOutputClass.dat', 'w')
+        outTasks = open('trainTasks.dat', 'w')
+        #~ outOutputClass = open('trainOutputClass.dat', 'w')
+        selecOut = open('selected.dat', 'w')
     else:
         outInput = open('aplicInput.dat', 'w')
+        outTasks = open('aplicTasks.dat', 'w')
+        #~ outInput1par = open('aplicInput1par.dat', 'w')
         if verdade:
             outOutput = open('verdadeOutput.dat', 'w')
-            outOutputClass = open('verdadeOutputClass.dat', 'w')
+            #~ outOutputClass = open('verdadeOutputClass.dat', 'w')
 
     #Setting info on temporary directory for images
     numberImages = 12
@@ -412,8 +480,11 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray):
     imgFile.append('2011364')
     imgFile.append('2011365')
 
+    #If we need to skip line
+    finishLine = True
     #Getting number of tasks
     numberTasks = len(tasksInfo)
+    print 'number of tasks: ', numberTasks
     for task in range(numberTasks):
         #Geting the selected day for each task
         taskId = tasksInfo[task]['taskId']
@@ -421,8 +492,10 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray):
             imgName = tmpImg[img] + str(taskId) + '.tif'
             #Openning image (and testing)
             if os.path.exists(imgName) is False:
-                #~ print 'Task miss: ' + str(taskId)
+                print 'INPUT -> Task miss: ' + str(taskId) + ' Image: ' + str(img) + ' Name: ' + imgName
+                finishLine = False
                 continue
+            print 'INPUT -> Task: ' + str(taskId) + ' Image: ' + str(img)
             fileSat = gdal.Open(imgName, GA_ReadOnly)
             if fileSat is None:
                 print 'Could not open ' + imgName
@@ -440,6 +513,8 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray):
             fileSat = None
 
             #If we are sampling the image, then we'll pick our samples
+            print 'sampl: ', sampl
+            print 'buildSampl: ', buildSampl
             if ((sampl == True) and (buildSampl == True)):
                 universe = []
                 samplList = []
@@ -448,110 +523,142 @@ def genInput(tasksInfo, results, origLocation, destLocation, typeGray):
                     for j in range(cols):
                         universe.append([i,j])
                 sizeUniverse = len(universe)
-                samplSize = int(0.10 * sizeUniverse)
+                samplSizeInt = int(samplSize * sizeUniverse)
                 print 'Sampling mode activated.'
-                print 'Using ', samplSize, ' out of ', sizeUniverse, ' pixels.'
-                for i in range(samplSize):
+                print 'Using ', samplSizeInt, ' out of ', sizeUniverse, ' pixels.'
+                for i in range(samplSizeInt):
                     samplList.append(universe.pop(random.randint(0,len(universe)-1)))
                 buildSampl = False
 
-
+            sumValueGray = 0.0
             if (sampl == False):
                 #Working with the values
                 for i in range(rows):
                     for j in range(cols):
                         #~ valueString = str(float(R_data_sat[i,j])/255.0)+' '+str(float(G_data_sat[i,j])/255.0)+' '+str(float(B_data_sat[i,j])/255.0)
                         valueGray = rgb2gray((float(R_data_sat[i,j])/255.0),(float(G_data_sat[i,j])/255.0),(float(B_data_sat[i,j])/255.0),typeGray)
-                        valueString = str(valueGray)
-                        outInput.write("%s "%valueString)
+                        sumValueGray = sumValueGray + valueGray
+                        valueString = str(taskId)+' '+str(valueGray)
+                        #~ outInput.write("%s "%valueString)
+                sumValueString = str(taskId)+' '+str(sumValueGray/(rows*cols))
+                #~ outInput1par.write("%s "%sumValueString)
+                outInput.write("%s "%sumValueString)
             else:
                 #Working with the sampled values
-                for idx in range(samplSize):
+                for idx in range(samplSizeInt):
                     i = samplList[idx][0]
                     j = samplList[idx][1]
                     valueGray = rgb2gray((float(R_data_sat[i,j])/255.0),(float(G_data_sat[i,j])/255.0),(float(B_data_sat[i,j])/255.0),typeGray)
+                    sumValueGray = sumValueGray + valueGray
                     valueString = str(valueGray)
-                    outInput.write("%s "%valueString)
+                    #~ outInput.write("%s "%valueString)
+                sumValueString = str(sumValueGray/samplSizeInt)
+                #~ outInput1par.write("%s "%sumValueString)
+                outInput.write("%s "%sumValueString)
 
-        #Closing the line of the file
-        outInput.write("\n")
+        #If we did not had a problem with missing task
+        if finishLine == True:
+            #Closing the line of the file
+            outInput.write("\n")
+            #~ outInput1par.write("\n")
+            outTasks.write(str(taskId)+"\n")
+        else:
+            finishLine = True
 
-        #If we are training, then we also generate the true
-        if treina:
-            selecName = '/home/eduardo/tmpImplement/results/tmpMosaic_n0/' + str(taskId) + '.tif'
+        #If we are training (or we know the truth), then we also generate the truth
+        if treina or verdade:
+            selecName = '/home/eduardo/ForestWatchers/ann2besttile/results/tmpMosaic_n0/' + str(taskId) + '.tif'
             #Openning image (and testing)
             if os.path.exists(selecName) is False:
-                print 'Task miss: ' + str(taskId)
+                print 'OUTPUT -> Task miss: ' + str(taskId)
                 continue
-            fileSelec = gdal.Open(selecName, GA_ReadOnly)
-            if fileSelec is None:
-                print 'Could not open ' + selecName
-                sys.exit(1)
-            # Read band values from image
-            rows = fileSelec.RasterYSize
-            cols = fileSelec.RasterXSize
-            R_band_selec = fileSelec.GetRasterBand(1)
-            G_band_selec = fileSelec.GetRasterBand(2)
-            B_band_selec = fileSelec.GetRasterBand(3)
-            R_data_selec = R_band_selec.ReadAsArray(0, 0, cols, rows)
-            G_data_selec = G_band_selec.ReadAsArray(0, 0, cols, rows)
-            B_data_selec = B_band_selec.ReadAsArray(0, 0, cols, rows)
-            #Closing image
-            fileSelec = None
+            #~ fileSelec = gdal.Open(selecName, GA_ReadOnly)
+            #~ if fileSelec is None:
+                #~ print 'Could not open ' + selecName
+                #~ sys.exit(1)
+            #~ # Read band values from image
+            #~ rows = fileSelec.RasterYSize
+            #~ cols = fileSelec.RasterXSize
+            #~ R_band_selec = fileSelec.GetRasterBand(1)
+            #~ G_band_selec = fileSelec.GetRasterBand(2)
+            #~ B_band_selec = fileSelec.GetRasterBand(3)
+            #~ R_data_selec = R_band_selec.ReadAsArray(0, 0, cols, rows)
+            #~ G_data_selec = G_band_selec.ReadAsArray(0, 0, cols, rows)
+            #~ B_data_selec = B_band_selec.ReadAsArray(0, 0, cols, rows)
+            #~ #Closing image
+            #~ fileSelec = None
+#~ 
+            #~ if (sampl == False):
+                #~ #Working with the values
+                #~ for i in range(rows):
+                    #~ for j in range(cols):
+                        #~ valueGray = rgb2gray((float(R_data_selec[i,j])/255.0),(float(G_data_selec[i,j])/255.0),(float(B_data_selec[i,j])/255.0),'gleam')
+                        #~ valueString = str(valueGray)
+                        #~ outOutput.write("%s "%valueString)
+            #~ else:
+                #~ #Working with the values
+                #~ for idx in range(samplSizeInt):
+                    #~ i = samplList[idx][0]
+                    #~ j = samplList[idx][1]
+                    #~ valueGray = rgb2gray((float(R_data_selec[i,j])/255.0),(float(G_data_selec[i,j])/255.0),(float(B_data_selec[i,j])/255.0),'gleam')
+                    #~ valueString = str(valueGray)
+                    #~ outOutput.write("%s "%valueString)
+#~ 
+            #~ #Closing line of the file
+            #~ outOutput.write("\n")
 
-            if (sampl == False):
-                #Working with the values
-                for i in range(rows):
-                    for j in range(cols):
-                        valueGray = rgb2gray((float(R_data_selec[i,j])/255.0),(float(G_data_selec[i,j])/255.0),(float(B_data_selec[i,j])/255.0),'gleam')
-                        valueString = str(valueGray)
-                        outOutput.write("%s "%valueString)
-            else:
-                #Working with the values
-                for idx in range(samplSize):
-                    i = samplList[idx][0]
-                    j = samplList[idx][1]
-                    valueGray = rgb2gray((float(R_data_selec[i,j])/255.0),(float(G_data_selec[i,j])/255.0),(float(B_data_selec[i,j])/255.0),'gleam')
-                    valueString = str(valueGray)
-                    outOutput.write("%s "%valueString)
-
-            #Closing line of the file
-            outOutput.write("\n")
-
-        selectedTile = results[task].index(max(results[task]))
-        if selectedTile == 0:
-            selectedFile = '1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 1:
-            selectedFile = '0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 2:
-            selectedFile = '0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 3:
-            selectedFile = '0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 4:
-            selectedFile = '0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 5:
-            selectedFile = '0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 6:
-            selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 7:
-            selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0'
-        elif selectedTile == 8:
-            selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0'
-        elif selectedTile == 9:
-            selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0'
-        elif selectedTile == 10:
-            selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0'
-        elif selectedTile == 11:
-            selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0'
-        outOutputClass.write("%s\n"%selectedFile)
+            selectedTile = results[task].index(max(results[task]))
+            if selectedTile == 0:
+                selectedName = str(taskId) + ' 2011352'
+                selectedFile = '1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 1:
+                selectedName = str(taskId) + ' 2011353'
+                selectedFile = '0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 2:
+                selectedName = str(taskId) + ' 2011355'
+                selectedFile = '0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 3:
+                selectedName = str(taskId) + ' 2011357'
+                selectedFile = '0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 4:
+                selectedName = str(taskId) + ' 2011358'
+                selectedFile = '0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 5:
+                selectedName = str(taskId) + ' 2011359'
+                selectedFile = '0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 6:
+                selectedName = str(taskId) + ' 2011360'
+                selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 7:
+                selectedName = str(taskId) + ' 2011361'
+                selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0'
+            elif selectedTile == 8:
+                selectedName = str(taskId) + ' 2011362'
+                selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0'
+            elif selectedTile == 9:
+                selectedName = str(taskId) + ' 2011363'
+                selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0'
+            elif selectedTile == 10:
+                selectedName = str(taskId) + ' 2011364'
+                selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0'
+            elif selectedTile == 11:
+                selectedName = str(taskId) + ' 2011365'
+                selectedFile = '0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0'
+            #~ outOutputClass.write("%s\n"%selectedFile)
+            outOutput.write("%s\n"%selectedFile)
+            selecOut.write("%s\n"%selectedName)
 
     # Close files
     outInput.close()
-    if treina:
+    outTasks.close()
+    #~ outInput1par.close()
+    if treina or verdade:
         outOutput.close()
-        outOutputClass.close()
+        #~ outOutputClass.close()
+        selecOut.close()
 
     statusGenInput = 0
+    print '\nend of genInput\n'
     return statusGenInput
 
 def rgb2gray(R,G,B,T):
@@ -653,7 +760,7 @@ if __name__ == "__main__":
         destDir = options.destDir
     else:
         #~ destDir = "/home/eduardo/Testes/fw_img/results/"
-        destDir = "/home/eduardo/tmpImplement/results/"
+        destDir = "/home/eduardo/ForestWatchers/ann2besttile/results/"
     if options.fullBuild:
         fullBuild = options.fullBuild
     else:
@@ -663,11 +770,14 @@ if __name__ == "__main__":
     else:
         removeFiles = 9999
 
+    #Download or load the data? 0 = download; 1 = load
+    downORload = 0
+
     #Get the data and start analysing it
     print "Obtaining AppId..."
     start = time.time()
     globalStart = start
-    appId = getAppId(server, appName)
+    appId = getAppId(server, appName, downORload)
     end = time.time()
     elapsed = end - start
     print "Time taken: ", elapsed, "seconds"
@@ -675,9 +785,10 @@ if __name__ == "__main__":
 
     #For complete tasks only
     completedOnly = 1
+    maxNumberAnswers = 35
     print "Obtaining Tasks..."
     start = time.time()
-    tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly)
+    tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly, downORload)
     end = time.time()
     elapsed = end - start
     print "Time taken: ", elapsed, "seconds"
@@ -685,7 +796,7 @@ if __name__ == "__main__":
     
     print "Obtaining Results..."
     start = time.time()
-    results = getResults(server, tasksInfo, maxNumberAnswers)
+    (usableTasksInfo, results) = getResults(server, tasksInfo, maxNumberAnswers, downORload)
     end = time.time()
     elapsed = end - start
     print "Time taken: ", elapsed, "seconds"
@@ -699,20 +810,21 @@ if __name__ == "__main__":
     print "Time taken: ", elapsed, "seconds"
     print " "
     
-    #~ print "Cutting images..."
-    #~ start = time.time()
-    #~ finalResult = cutTiles(tasksInfo, stats, imagesDir, destDir, \
-        #~ completedOnly)
-    #~ end = time.time()
-    #~ elapsed = end - start
-    #~ print "Time taken: ", elapsed, "seconds"
-    #~ print " "
+    print "Cutting images..."
+    start = time.time()
+    finalResult = cutTiles(usableTasksInfo, stats, imagesDir, destDir, \
+        completedOnly)
+    end = time.time()
+    elapsed = end - start
+    print "Time taken: ", elapsed, "seconds"
+    print " "
 
     #Genereting input for ANN
+    #~ typeGray = 'luminance'
     typeGray = 'luminance'
     print "Generating input for ANN..."
     start = time.time()
-    input = genInput(tasksInfo, stats, imagesDir, destDir, typeGray)
+    input = genInput(usableTasksInfo, stats, imagesDir, destDir, typeGray, 0.25)
     end = time.time()
     globalEnd = end
     elapsed = end - start
